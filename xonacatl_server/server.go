@@ -36,7 +36,7 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			request_layers = v
 			v = "all"
 
-		} else if k == "format" {
+		} else if k == "fmt" {
 			format = v
 		}
 
@@ -80,6 +80,14 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	if resp.StatusCode != 200 {
+		for k, v := range resp.Header {
+			rw.Header()[k] = v
+		}
+		rw.WriteHeader(resp.StatusCode)
+		copyAll(resp.Body, map[string]bool{}, rw)
+	}
+
 	var rd io.Reader
 	rd = resp.Body
 	content_encoding := resp.Header["Content-Encoding"]
@@ -96,6 +104,7 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	var wr io.Writer
 	wr = rw
 	// TODO: proper content negotiation on quality values
+	req_content_encoding := "identity"
 	if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
 		gz := gzip.NewWriter(wr)
 		defer func() {
@@ -105,11 +114,14 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 			}
 		}()
 		wr = gz
+		req_content_encoding = "gzip"
 	}
 
 	for k, v := range resp.Header {
 		rw.Header()[k] = v
 	}
+	rw.Header()["Content-Encoding"] = []string{req_content_encoding}
+	delete(rw.Header(), "Content-Length")
 	rw.WriteHeader(resp.StatusCode)
 
 	layers := make(map[string]bool)
@@ -135,7 +147,7 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		copy_func = copyAll
 	}
 
-	err = copy_func(resp.Body, layers, rw)
+	err = copy_func(rd, layers, wr)
 
 	// possibly can't return this to the client, as we've already written the
 	// response header. a write failure at this stage also could be an error
