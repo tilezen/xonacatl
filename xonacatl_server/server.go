@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"strings"
+	"compress/gzip"
 )
 
 type LayersHandler struct {
@@ -68,11 +69,42 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	for k, v := range req.Header {
 		new_req.Header[k] = v
 	}
+	// always request gzip from upstream, regardless of what the client asked
+	// for. ask for gzip first, with fall back to identity
+	new_req.Header["Accept-Encoding"] = []string{"gzip;q=1.0,identity;q=0.5"}
 	// TODO: override User-Agent? Add X-Forwarded-For?
+
 	resp, err := http.DefaultClient.Do(new_req)
 	if err != nil {
 		http.Error(rw, err.Error(), 500)
 		return
+	}
+
+	var rd io.Reader
+	rd = resp.Body
+	content_encoding := resp.Header["Content-Encoding"]
+	if content_encoding != nil &&
+		len(content_encoding) == 1 &&
+		content_encoding[0] == "gzip" {
+		rd, err = gzip.NewReader(rd)
+		if err != nil {
+			http.Error(rw, err.Error(), 500)
+			return
+		}
+	}
+
+	var wr io.Writer
+	wr = rw
+	// TODO: proper content negotiation on quality values
+	if strings.Contains(req.Header.Get("Accept-Encoding"), "gzip") {
+		gz := gzip.NewWriter(wr)
+		defer func() {
+			err = gz.Close()
+			if err != nil {
+				log.Printf("Failed to flush and close GzipWriter: %s", err.Error())
+			}
+		}()
+		wr = gz
 	}
 
 	for k, v := range resp.Header {
