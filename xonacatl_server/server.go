@@ -92,6 +92,9 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	} else if format == "json" {
 		copy_func = xonacatl.CopyLayers
 
+	} else if format == "topojson" {
+		copy_func = xonacatl.CopyTopoJSONLayers
+
 	} else if format == "mvt" || format == "mvtb" {
 		copy_func = xonacatl.CopyMVTLayers
 
