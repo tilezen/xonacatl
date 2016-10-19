@@ -164,6 +164,7 @@ func main() {
 	f.StringVar(&pattern, "pattern", "/mapzen/v{version:[0-9]+}/{layers}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.{fmt}", "pattern to use when matching incoming tile requests")
 	f.StringVar(&origin, "host", "http://tile.mapzen.com/mapzen/v{version:[0-9]+}/{layers}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.{fmt}", "URL pattern to fetch tiles from")
 	f.StringVar(&listen, "listen", ":8080", "interface and port to listen on")
+	f.String("config", "", "Config file to read values from.")
 	err := f.Parse(os.Args[1:])
 	if err == flag.ErrHelp {
 		return
