@@ -30,6 +30,18 @@ Installing
 ----------
 
 ```
+cd $GOPATH
+go get -u github.com/golang/protobuf/proto
 go get -u github.com/tilezen/xonacatl/xonacatl_server
 go install github.com/tilezen/xonacatl/xonacatl_server
 ```
+
+To update the generated protocol buffers code, you will need to run `go generate` and have the protobuf Go compiler plugin installed:
+
+```
+cd $GOPATH
+go get -u github.com/golang/protobuf/protoc-gen-go
+PATH=$PATH:$PWD/bin go generate github.com/tilezen/xonacatl
+```
+
+As is the Go convention, the generated source code is checked in. Unless you need to alter the original protocol buffers definiton, it shoud not be necessary to install the `protoc-gen-go` tool, or run `go generate`.

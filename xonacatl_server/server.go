@@ -17,6 +17,13 @@ type LayersHandler struct {
 	route *mux.Route
 }
 
+type CopyFunc func(io.Reader, map[string]bool, io.Writer) error
+
+func copyAll(rd io.Reader, _ map[string]bool, wr io.Writer) error {
+	_, err := io.Copy(wr, rd)
+	return err
+}
+
 func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	var request_layers string
 	var format string
@@ -72,17 +79,29 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		rw.Header()[k] = v
 	}
 	rw.WriteHeader(resp.StatusCode)
-	if request_layers != "all" && format == "json" {
-		layers := make(map[string]bool)
-		for _, l := range strings.Split(request_layers, ",") {
-			layers[l] = true
-		}
-		err = xonacatl.CopyLayers(resp.Body, layers, rw)
+
+	layers := make(map[string]bool)
+	for _, l := range strings.Split(request_layers, ",") {
+		layers[l] = true
+	}
+
+	var copy_func CopyFunc
+	if request_layers == "all" {
+		copy_func = copyAll
+
+	} else if format == "json" {
+		copy_func = xonacatl.CopyLayers
+
+	} else if format == "mvt" || format == "mvtb" {
+		copy_func = xonacatl.CopyMVTLayers
 
 	} else {
 		// fall back to just copying the request as-is
-		_, err = io.Copy(rw, resp.Body)
+		copy_func = copyAll
 	}
+
+	err = copy_func(resp.Body, layers, rw)
+
 	// possibly can't return this to the client, as we've already written the
 	// response header. a write failure at this stage also could be an error
 	// writing _to_ the client.
