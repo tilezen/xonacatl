@@ -166,7 +166,7 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 }
 
 type headerOption struct {
-	header *http.Header
+	header http.Header
 }
 
 func (h *headerOption) String() string {
@@ -187,7 +187,7 @@ func (h *headerOption) Set(line string) error {
 
 func main() {
 	var pattern, origin, listen string
-	custom_headers := headerOption{header: new(http.Header)}
+	custom_headers := headerOption{header: make(http.Header)}
 
 	f := flag.NewFlagSetWithEnvPrefix(os.Args[0], "XONACATL", 0)
 	f.StringVar(&pattern, "pattern", "/mapzen/v{version:[0-9]+}/{layers}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.{fmt}", "pattern to use when matching incoming tile requests")
@@ -211,8 +211,8 @@ func main() {
 	origin_router.NewRoute().Path(url.Path).BuildOnly().Name("origin")
 
 	var headers *http.Header
-	if len(*custom_headers.header) > 0 {
-		headers = custom_headers.header
+	if len(custom_headers.header) > 0 {
+		headers = &custom_headers.header
 	}
 
 	h := &LayersHandler{
