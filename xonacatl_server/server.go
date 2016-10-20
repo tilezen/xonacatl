@@ -11,11 +11,14 @@ import (
 	"os"
 	"strings"
 	"compress/gzip"
+	"bytes"
+	"fmt"
 )
 
 type LayersHandler struct {
 	origin *url.URL
 	route *mux.Route
+	custom_headers *http.Header
 }
 
 type CopyFunc func(io.Reader, map[string]bool, io.Writer) error
@@ -72,7 +75,12 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	// always request gzip from upstream, regardless of what the client asked
 	// for. ask for gzip first, with fall back to identity
 	new_req.Header["Accept-Encoding"] = []string{"gzip;q=1.0,identity;q=0.5"}
-	// TODO: override User-Agent? Add X-Forwarded-For?
+	// if there's a custom header, add it
+	if h.custom_headers != nil {
+		for k, vs := range *h.custom_headers {
+			new_req.Header[k] = vs
+		}
+	}
 
 	resp, err := http.DefaultClient.Do(new_req)
 	if err != nil {
@@ -157,14 +165,36 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 }
 
+type headerOption struct {
+	header *http.Header
+}
+
+func (h *headerOption) String() string {
+	var buf bytes.Buffer
+	h.header.Write(&buf)
+	return buf.String()
+}
+
+func (h *headerOption) Set(line string) error {
+	parts := strings.SplitN(line, ":", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("Unable to parse %#v as an HTTP header", line)
+	}
+
+	h.header.Set(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+	return nil
+}
+
 func main() {
 	var pattern, origin, listen string
+	custom_headers := headerOption{header:new(http.Header)}
 
 	f := flag.NewFlagSetWithEnvPrefix(os.Args[0], "XONACATL", 0)
 	f.StringVar(&pattern, "pattern", "/mapzen/v{version:[0-9]+}/{layers}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.{fmt}", "pattern to use when matching incoming tile requests")
 	f.StringVar(&origin, "host", "http://tile.mapzen.com/mapzen/v{version:[0-9]+}/{layers}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.{fmt}", "URL pattern to fetch tiles from")
 	f.StringVar(&listen, "listen", ":8080", "interface and port to listen on")
 	f.String("config", "", "Config file to read values from.")
+	f.Var(&custom_headers, "header", "extra headers to add to proxied requests. Repeat this option to add multiple headers.")
 	err := f.Parse(os.Args[1:])
 	if err == flag.ErrHelp {
 		return
@@ -180,9 +210,15 @@ func main() {
 	origin_router := mux.NewRouter()
 	origin_router.NewRoute().Path(url.Path).BuildOnly().Name("origin")
 
+	var headers *http.Header
+	if len(*custom_headers.header) > 0 {
+		headers = custom_headers.header
+	}
+
 	h := &LayersHandler{
 		origin: url,
 		route: origin_router.GetRoute("origin"),
+		custom_headers: headers,
 	}
 
 	r := mux.NewRouter()
