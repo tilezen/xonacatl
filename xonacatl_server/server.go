@@ -1,23 +1,23 @@
 package main
 
 import (
-	"github.com/tilezen/xonacatl"
-	"github.com/namsral/flag"
+	"bytes"
+	"compress/gzip"
+	"fmt"
 	"github.com/gorilla/mux"
-	"net/http"
-	"log"
-	"net/url"
+	"github.com/namsral/flag"
+	"github.com/tilezen/xonacatl"
 	"io"
+	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"strings"
-	"compress/gzip"
-	"bytes"
-	"fmt"
 )
 
 type LayersHandler struct {
-	origin *url.URL
-	route *mux.Route
+	origin         *url.URL
+	route          *mux.Route
 	custom_headers *http.Header
 }
 
@@ -187,7 +187,7 @@ func (h *headerOption) Set(line string) error {
 
 func main() {
 	var pattern, origin, listen string
-	custom_headers := headerOption{header:new(http.Header)}
+	custom_headers := headerOption{header: new(http.Header)}
 
 	f := flag.NewFlagSetWithEnvPrefix(os.Args[0], "XONACATL", 0)
 	f.StringVar(&pattern, "pattern", "/mapzen/v{version:[0-9]+}/{layers}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.{fmt}", "pattern to use when matching incoming tile requests")
@@ -216,8 +216,8 @@ func main() {
 	}
 
 	h := &LayersHandler{
-		origin: url,
-		route: origin_router.GetRoute("origin"),
+		origin:         url,
+		route:          origin_router.GetRoute("origin"),
 		custom_headers: headers,
 	}
 

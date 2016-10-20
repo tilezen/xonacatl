@@ -1,9 +1,9 @@
 package xonacatl
 
 import (
-	"testing"
-	"strings"
 	"bytes"
+	"strings"
+	"testing"
 )
 
 func runCopyTopoJSON(input string, layers map[string]bool) (output string, err error) {
@@ -37,8 +37,8 @@ func runCopyTopoJSONAssertOutput(input string, layers map[string]bool, expected 
 
 const (
 	minimal = `{"type":"Topology","objects":{},"arcs":[]}`
-	foo = `{"type":"Topology","objects":{"foo":{"foo":false}},"arcs":[]}`
-	foobar = `{"type":"Topology","objects":{"bar":{"bar":false},"foo":{"foo":false}},"arcs":[]}`
+	foo     = `{"type":"Topology","objects":{"foo":{"foo":false}},"arcs":[]}`
+	foobar  = `{"type":"Topology","objects":{"bar":{"bar":false},"foo":{"foo":false}},"arcs":[]}`
 )
 
 func TestTopoJSONEmptyWithoutLayers(t *testing.T) {
@@ -46,7 +46,7 @@ func TestTopoJSONEmptyWithoutLayers(t *testing.T) {
 }
 
 func TestTopoJSONEmptyWithLayers(t *testing.T) {
-	runCopyTopoJSONAssertOutput(minimal, map[string]bool{"foo":true}, minimal, t)
+	runCopyTopoJSONAssertOutput(minimal, map[string]bool{"foo": true}, minimal, t)
 }
 
 func TestTopoJSONNonEmptyWithoutLayers(t *testing.T) {
@@ -54,9 +54,9 @@ func TestTopoJSONNonEmptyWithoutLayers(t *testing.T) {
 }
 
 func TestTopoJSONNonEmptyWithSingleLayer(t *testing.T) {
-	runCopyTopoJSONAssertOutput(foobar, map[string]bool{"foo":true}, foo, t)
+	runCopyTopoJSONAssertOutput(foobar, map[string]bool{"foo": true}, foo, t)
 }
 
 func TestTopoJSONNonEmptyWithLayers(t *testing.T) {
-	runCopyTopoJSONAssertOutput(foobar, map[string]bool{"foo":true,"bar":true}, foobar, t)
+	runCopyTopoJSONAssertOutput(foobar, map[string]bool{"foo": true, "bar": true}, foobar, t)
 }

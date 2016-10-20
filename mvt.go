@@ -3,11 +3,11 @@
 package xonacatl
 
 import (
-	"io"
-	"io/ioutil"
 	"fmt"
 	"github.com/golang/protobuf/proto"
 	"github.com/tilezen/xonacatl/mapnik_vector"
+	"io"
+	"io/ioutil"
 )
 
 func CopyMVTLayers(rd io.Reader, layers map[string]bool, wr io.Writer) error {

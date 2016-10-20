@@ -1,9 +1,9 @@
 package xonacatl
 
 import (
-	"testing"
-	"strings"
 	"bytes"
+	"strings"
+	"testing"
 )
 
 func runCopy(input string, layers map[string]bool) (output string, err error) {
@@ -38,7 +38,7 @@ func TestEmptyWithoutLayers(t *testing.T) {
 }
 
 func TestEmptyWithLayers(t *testing.T) {
-	runCopyAssertOutput("{}", map[string]bool{"foo":true}, "{}", t)
+	runCopyAssertOutput("{}", map[string]bool{"foo": true}, "{}", t)
 }
 
 func TestNonEmptyWithoutLayers(t *testing.T) {
@@ -47,10 +47,10 @@ func TestNonEmptyWithoutLayers(t *testing.T) {
 
 func TestNonEmptyWithSingleLayer(t *testing.T) {
 	json := "{\"foo\":{\"bar\":false},\"zzz\":false}"
-	runCopyAssertOutput(json, map[string]bool{"foo":true}, "{\"bar\":false}", t)
+	runCopyAssertOutput(json, map[string]bool{"foo": true}, "{\"bar\":false}", t)
 }
 
 func TestNonEmptyWithLayers(t *testing.T) {
 	json := "{\"foo\":{\"bar\":false},\"zzz\":false}"
-	runCopyAssertOutput(json, map[string]bool{"foo":true,"zzz":true}, json, t)
+	runCopyAssertOutput(json, map[string]bool{"foo": true, "zzz": true}, json, t)
 }
