@@ -185,8 +185,12 @@ func (h *headerOption) Set(line string) error {
 	return nil
 }
 
+func getHealth(rw http.ResponseWriter, _ *http.Request) {
+	rw.WriteHeader(200)
+}
+
 func main() {
-	var pattern, origin, listen string
+	var pattern, origin, listen, healthcheck string
 	custom_headers := headerOption{header: make(http.Header)}
 
 	f := flag.NewFlagSetWithEnvPrefix(os.Args[0], "XONACATL", 0)
@@ -195,6 +199,7 @@ func main() {
 	f.StringVar(&listen, "listen", ":8080", "interface and port to listen on")
 	f.String("config", "", "Config file to read values from.")
 	f.Var(&custom_headers, "header", "extra headers to add to proxied requests. Repeat this option to add multiple headers.")
+	f.StringVar(&healthcheck, "healthcheck", "", "A path to respond to with a blank 200 OK. Intended for use by load balancer health checks.")
 	err := f.Parse(os.Args[1:])
 	if err == flag.ErrHelp {
 		return
@@ -223,6 +228,9 @@ func main() {
 
 	r := mux.NewRouter()
 	r.Handle(pattern, h).Methods("GET")
+	if len(healthcheck) > 0 {
+		r.HandleFunc(healthcheck, getHealth).Methods("GET")
+	}
 	http.Handle("/", r)
 
 	log.Fatal(http.ListenAndServe(listen, r))
