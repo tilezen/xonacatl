@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"compress/gzip"
+	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/namsral/flag"
@@ -176,12 +177,16 @@ func (h *headerOption) String() string {
 }
 
 func (h *headerOption) Set(line string) error {
-	parts := strings.SplitN(line, ":", 2)
-	if len(parts) != 2 {
-		return fmt.Errorf("Unable to parse %#v as an HTTP header", line)
+	m := make(map[string]string)
+	err := json.Unmarshal([]byte(line), &m)
+	if err != nil {
+		return fmt.Errorf("Unable to parse value as a JSON object: %s", err.Error())
 	}
 
-	h.header.Set(strings.TrimSpace(parts[0]), strings.TrimSpace(parts[1]))
+	for k, v := range m {
+		h.header.Set(k, v)
+	}
+
 	return nil
 }
 
@@ -198,17 +203,21 @@ func (p *patternsOption) String() string {
 }
 
 func (p *patternsOption) Set(line string) error {
-	parts := strings.SplitN(line, " -> ", 2)
-	if len(parts) != 2 {
-		return fmt.Errorf("Unable to parse %#v as 'pattern -> origin'", line)
-	}
-
-	url, err := url.Parse(parts[1])
+	m := make(map[string]string)
+	err := json.Unmarshal([]byte(line), &m)
 	if err != nil {
-		return fmt.Errorf("Unable to parse origin URL: %s", err.Error())
+		return fmt.Errorf("Unable to parse value as a JSON object: %s", err.Error())
 	}
 
-	p.patterns[parts[0]] = url
+	for k, v := range m {
+		url, err := url.Parse(v)
+		if err != nil {
+			return fmt.Errorf("Unable to parse origin URL %#v: %s", v, err.Error())
+		}
+
+		p.patterns[k] = url
+	}
+
 	return nil
 }
 
@@ -218,10 +227,10 @@ func main() {
 	patterns := patternsOption{patterns: make(map[string]*url.URL)}
 
 	f := flag.NewFlagSetWithEnvPrefix(os.Args[0], "XONACATL", 0)
-	f.Var(&patterns, "pattern", "pattern to use when matching incoming tile requests, followed by ' -> ' (spaces important) and the URL pattern to fetch tiles from. This option may be repeated several times.")
+	f.Var(&patterns, "patterns", "JSON object of patterns to use when matching incoming tile requests.")
 	f.StringVar(&listen, "listen", ":8080", "interface and port to listen on")
 	f.String("config", "", "Config file to read values from.")
-	f.Var(&custom_headers, "header", "extra headers to add to proxied requests. Repeat this option to add multiple headers.")
+	f.Var(&custom_headers, "headers", "JSON object of extra headers to add to proxied requests.")
 	f.StringVar(&healthcheck, "healthcheck", "", "A path to respond to with a blank 200 OK. Intended for use by load balancer health checks.")
 	err := f.Parse(os.Args[1:])
 	if err == flag.ErrHelp {
