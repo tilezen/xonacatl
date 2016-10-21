@@ -230,6 +230,10 @@ func main() {
 		log.Fatalf("Unable to parse input command line, environment or config: %s", err.Error())
 	}
 
+	if len(patterns.patterns) == 0 {
+		log.Fatalf("You must provide at least one pattern to proxy.")
+	}
+
 	var headers *http.Header
 	if len(custom_headers.header) > 0 {
 		headers = &custom_headers.header
