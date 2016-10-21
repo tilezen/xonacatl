@@ -189,13 +189,36 @@ func getHealth(rw http.ResponseWriter, _ *http.Request) {
 	rw.WriteHeader(200)
 }
 
+type patternsOption struct {
+	patterns map[string]*url.URL
+}
+
+func (p *patternsOption) String() string {
+	return fmt.Sprintf("%#v", p.patterns)
+}
+
+func (p *patternsOption) Set(line string) error {
+	parts := strings.SplitN(line, " -> ", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("Unable to parse %#v as 'pattern -> origin'", line)
+	}
+
+	url, err := url.Parse(parts[1])
+	if err != nil {
+		return fmt.Errorf("Unable to parse origin URL: %s", err.Error())
+	}
+
+	p.patterns[parts[0]] = url
+	return nil
+}
+
 func main() {
-	var pattern, origin, listen, healthcheck string
+	var listen, healthcheck string
 	custom_headers := headerOption{header: make(http.Header)}
+	patterns := patternsOption{patterns: make(map[string]*url.URL)}
 
 	f := flag.NewFlagSetWithEnvPrefix(os.Args[0], "XONACATL", 0)
-	f.StringVar(&pattern, "pattern", "/mapzen/v{version:[0-9]+}/{layers}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.{fmt}", "pattern to use when matching incoming tile requests")
-	f.StringVar(&origin, "host", "http://tile.mapzen.com/mapzen/v{version:[0-9]+}/{layers}/{z:[0-9]+}/{x:[0-9]+}/{y:[0-9]+}.{fmt}", "URL pattern to fetch tiles from")
+	f.Var(&patterns, "pattern", "pattern to use when matching incoming tile requests, followed by ' -> ' (spaces important) and the URL pattern to fetch tiles from. This option may be repeated several times.")
 	f.StringVar(&listen, "listen", ":8080", "interface and port to listen on")
 	f.String("config", "", "Config file to read values from.")
 	f.Var(&custom_headers, "header", "extra headers to add to proxied requests. Repeat this option to add multiple headers.")
@@ -207,27 +230,26 @@ func main() {
 		log.Fatalf("Unable to parse input command line, environment or config: %s", err.Error())
 	}
 
-	url, err := url.Parse(origin)
-	if err != nil {
-		log.Fatalf("Unable to parse origin URL: %s", err.Error())
-	}
-
-	origin_router := mux.NewRouter()
-	origin_router.NewRoute().Path(url.Path).BuildOnly().Name("origin")
-
 	var headers *http.Header
 	if len(custom_headers.header) > 0 {
 		headers = &custom_headers.header
 	}
 
-	h := &LayersHandler{
-		origin:         url,
-		route:          origin_router.GetRoute("origin"),
-		custom_headers: headers,
+	r := mux.NewRouter()
+
+	for pattern, origin := range patterns.patterns {
+		origin_router := mux.NewRouter()
+		origin_router.NewRoute().Path(origin.Path).BuildOnly().Name("origin")
+
+		h := &LayersHandler{
+			origin:         origin,
+			route:          origin_router.GetRoute("origin"),
+			custom_headers: headers,
+		}
+
+		r.Handle(pattern, h).Methods("GET")
 	}
 
-	r := mux.NewRouter()
-	r.Handle(pattern, h).Methods("GET")
 	if len(healthcheck) > 0 {
 		r.HandleFunc(healthcheck, getHealth).Methods("GET")
 	}
