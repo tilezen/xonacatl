@@ -13,13 +13,15 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 )
 
 type LayersHandler struct {
-	origin         *url.URL
-	route          *mux.Route
-	custom_headers *http.Header
+	origin                 *url.URL
+	route                  *mux.Route
+	custom_headers         *http.Header
+	do_not_forward_headers []*regexp.Regexp
 }
 
 type CopyFunc func(io.Reader, map[string]bool, io.Writer) error
@@ -71,6 +73,12 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	}
 
 	for k, v := range req.Header {
+		for _, re := range h.do_not_forward_headers {
+			if re.MatchString(k) {
+				continue
+			}
+		}
+
 		new_req.Header[k] = v
 	}
 	// always request gzip from upstream, regardless of what the client asked
@@ -222,10 +230,37 @@ func (p *patternsOption) Set(line string) error {
 	return nil
 }
 
+type regexpListOption struct {
+	regexps []*regexp.Regexp
+}
+
+func (r *regexpListOption) String() string {
+	return fmt.Sprintf("%#v", r.regexps)
+}
+
+func (r *regexpListOption) Set(line string) error {
+	var parts []string
+	err := json.Unmarshal([]byte(line), &parts)
+	if err != nil {
+		return fmt.Errorf("Unable to parse value as a JSON list: %s", err.Error())
+	}
+
+	for _, part := range parts {
+		re, err := regexp.Compile(part)
+		if err != nil {
+			return fmt.Errorf("Unable to compile part #%v as regexp: %s", part, err.Error())
+		}
+		r.regexps = append(r.regexps, re)
+	}
+
+	return nil
+}
+
 func main() {
 	var listen, healthcheck string
 	custom_headers := headerOption{header: make(http.Header)}
 	patterns := patternsOption{patterns: make(map[string]*url.URL)}
+	do_not_forward := regexpListOption{}
 
 	f := flag.NewFlagSetWithEnvPrefix(os.Args[0], "XONACATL", 0)
 	f.Var(&patterns, "patterns", "JSON object of patterns to use when matching incoming tile requests.")
@@ -233,6 +268,7 @@ func main() {
 	f.String("config", "", "Config file to read values from.")
 	f.Var(&custom_headers, "headers", "JSON object of extra headers to add to proxied requests.")
 	f.StringVar(&healthcheck, "healthcheck", "", "A path to respond to with a blank 200 OK. Intended for use by load balancer health checks.")
+	f.Var(&do_not_forward, "noforward", "List of regular expressions. If a header matches one of these, then it will not be forwarded to the origin.")
 	err := f.Parse(os.Args[1:])
 	if err == flag.ErrHelp {
 		return
@@ -256,9 +292,10 @@ func main() {
 		origin_router.NewRoute().Path(origin.Path).BuildOnly().Name("origin")
 
 		h := &LayersHandler{
-			origin:         origin,
-			route:          origin_router.GetRoute("origin"),
-			custom_headers: headers,
+			origin:                 origin,
+			route:                  origin_router.GetRoute("origin"),
+			custom_headers:         headers,
+			do_not_forward_headers: do_not_forward.regexps,
 		}
 
 		r.Handle(pattern, h).Methods("GET")
