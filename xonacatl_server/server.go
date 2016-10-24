@@ -79,10 +79,11 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+HeaderLoop:
 	for k, v := range req.Header {
 		for _, re := range h.do_not_forward_headers {
 			if re.MatchString(k) {
-				continue
+				continue HeaderLoop
 			}
 		}
 
