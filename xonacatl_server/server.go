@@ -95,6 +95,7 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		}
 		rw.WriteHeader(resp.StatusCode)
 		copyAll(resp.Body, map[string]bool{}, rw)
+		return
 	}
 
 	var rd io.Reader
