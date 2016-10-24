@@ -55,6 +55,13 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	// parse form to ensure that query parameters are available.
+	err = req.ParseForm()
+	if err != nil {
+		http.Error(rw, err.Error(), 400)
+		return
+	}
+
 	origin_url := *h.origin
 	origin_url.Path = origin_path.Path
 	// copy request paramters, as this might include API key
