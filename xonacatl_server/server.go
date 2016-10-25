@@ -135,6 +135,7 @@ func main() {
 			route:                  origin_router.GetRoute("origin"),
 			custom_headers:         headers,
 			do_not_forward_headers: do_not_forward.regexps,
+			http_client:            &http.Client{},
 		}
 
 		gzipped := gziphandler.GzipHandler(h)

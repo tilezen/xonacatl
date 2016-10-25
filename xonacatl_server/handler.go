@@ -13,13 +13,13 @@ import (
 
 // LayersHandler proxies requests to an origin server and filters the response layers.
 //
-// It does this by matching the request against a given route pattern, and proxies that to the origin using the httpClient. It adds custom headers to that request, but strips out any header keys matching do_not_forward_headers.
+// It does this by matching the request against a given route pattern, and proxies that to the origin using the http_client. It adds custom headers to that request, but strips out any header keys matching do_not_forward_headers.
 type LayersHandler struct {
 	origin                 *url.URL
 	route                  *mux.Route
 	custom_headers         *http.Header
 	do_not_forward_headers []*regexp.Regexp
-	httpClient             *http.Client
+	http_client            *http.Client
 }
 
 // copyAll is a simple implementation of xonacatl.LayerCopier which copies the whole response back to the client. This is useful when the server receives a request for a format it does not understand, or a request for the "all" layer, and allows it to act as a pure proxy in that case.
@@ -106,7 +106,7 @@ func (h *LayersHandler) makeProxyRequest(origin_path string, req *http.Request) 
 	// delete any accept-encoding header, as the default transport for the http package will automatically and transparently gzip when possible.
 	delete(new_req.Header, "Accept-Encoding")
 
-	return h.httpClient.Do(new_req)
+	return h.http_client.Do(new_req)
 }
 
 func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
