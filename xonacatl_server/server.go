@@ -31,6 +31,18 @@ func copyAll(rd io.Reader, _ map[string]bool, wr io.Writer) error {
 	return err
 }
 
+// forwardHeader returns true if the header should be forwarded to the origin.
+//
+// It figures that out by looking at whether header key matches any of the regular expressions in the "do not forward" list.
+func (h *LayersHandler) forwardHeader(k string) bool {
+	for _, re := range h.do_not_forward_headers {
+		if re.MatchString(k) {
+			return false
+		}
+	}
+	return true
+}
+
 func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 	var request_layers string
 	var format string
@@ -79,15 +91,10 @@ func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-HeaderLoop:
 	for k, v := range req.Header {
-		for _, re := range h.do_not_forward_headers {
-			if re.MatchString(k) {
-				continue HeaderLoop
-			}
+		if h.forwardHeader(k) {
+			new_req.Header[k] = v
 		}
-
-		new_req.Header[k] = v
 	}
 	// always request gzip from upstream, regardless of what the client asked
 	// for. ask for gzip first, with fall back to identity
