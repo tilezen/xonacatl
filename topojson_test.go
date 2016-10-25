@@ -10,7 +10,8 @@ func runCopyTopoJSON(input string, layers map[string]bool) (output string, err e
 	var buf bytes.Buffer
 	rd := strings.NewReader(input)
 
-	err = CopyTopoJSONLayers(rd, layers, &buf)
+	copier := NewCopyTopoJSONLayers(layers)
+	err = copier.CopyLayers(rd, &buf)
 	if err == nil {
 		output = buf.String()
 	}

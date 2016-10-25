@@ -21,10 +21,19 @@ type topoJSON struct {
 	Type      string                 `json:"type"`
 	Transform *json.RawMessage       `json:"transform,omitempty"`
 	Objects   map[string]*topoObject `json:"objects"`
+	// arcs currently stored as RawMessage to avoid precision issues when Unmarshalling and Marshalling them. see long comment in json.go.
 	Arcs      *json.RawMessage       `json:"arcs"`
 }
 
-func CopyTopoJSONLayers(rd io.Reader, layers map[string]bool, wr io.Writer) error {
+type topoJSONCopier struct {
+	layers map[string]bool
+}
+
+func NewCopyTopoJSONLayers(layers map[string]bool) *topoJSONCopier {
+	return &topoJSONCopier{layers: layers}
+}
+
+func (c *topoJSONCopier) CopyLayers(rd io.Reader, wr io.Writer) error {
 	var t topoJSON
 
 	dec := json.NewDecoder(rd)
@@ -35,7 +44,7 @@ func CopyTopoJSONLayers(rd io.Reader, layers map[string]bool, wr io.Writer) erro
 	}
 
 	for k := range t.Objects {
-		if !layers[k] {
+		if !c.layers[k] {
 			delete(t.Objects, k)
 		}
 	}

@@ -10,7 +10,8 @@ func runCopy(input string, layers map[string]bool) (output string, err error) {
 	var buf bytes.Buffer
 	rd := strings.NewReader(input)
 
-	err = CopyLayers(rd, layers, &buf)
+	copier := NewCopyLayers(layers)
+	err = copier.CopyLayers(rd, &buf)
 	if err == nil {
 		output = buf.String()
 	}

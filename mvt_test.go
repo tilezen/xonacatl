@@ -9,7 +9,8 @@ func runCopyMVT(input []byte, layers map[string]bool) (output []byte, err error)
 	var buf bytes.Buffer
 	rd := bytes.NewBuffer(input)
 
-	err = CopyMVTLayers(rd, layers, &buf)
+	copier := NewCopyMVTLayers(layers)
+	err = copier.CopyLayers(rd, &buf)
 	if err == nil {
 		output = buf.Bytes()
 	}

@@ -87,14 +87,23 @@ func (w *LayersWriter) writeDelim(s string) error {
 	return nil
 }
 
-func CopyLayers(rd io.Reader, layers map[string]bool, wr io.Writer) error {
+type geoJSONCopier struct {
+	layers map[string]bool
+}
+
+func NewCopyLayers(layers map[string]bool) *geoJSONCopier {
+	return &geoJSONCopier{layers: layers}
+}
+
+func (c *geoJSONCopier) CopyLayers(rd io.Reader, wr io.Writer) error {
 	var err error
 	var num_layers int
 
+	// we use a streaming model here to avoid having to Unmarshal the whole document. the upstream server goes to some length to use the right number of digits of precision for the floating point coordinates depending on the zoom level. Unmarshalling and re-Marshalling here would mean treating that very carefully to ensure the same behaviour, whereas a streaming approach means we can ignore it and stream back the bytes of the original document unmodified. also, Unmarshal and Marshal can be quite time and memory consuming because of the size of the JSON tree, so avoiding them is a double benefit.
 	dec := json.NewDecoder(rd)
 
 	num_layers = 0
-	for _, v := range layers {
+	for _, v := range c.layers {
 		if v {
 			num_layers += 1
 		}
@@ -118,6 +127,7 @@ func CopyLayers(rd io.Reader, layers map[string]bool, wr io.Writer) error {
 
 	for dec.More() {
 		var tok json.Token
+		// the RawMessage value means the document is parsed, but doesn't create an in-memory representation of the JSON document as Unmarshal does. this is both faster and avoids issues around precision of floating point numbers (see longer comment above).
 		var m json.RawMessage
 
 		tok, err = dec.Token()
@@ -134,7 +144,7 @@ func CopyLayers(rd io.Reader, layers map[string]bool, wr io.Writer) error {
 			return err
 		}
 
-		if layers[k] {
+		if c.layers[k] {
 			err = enc.WriteLayer(k, &m)
 			if err != nil {
 				return err

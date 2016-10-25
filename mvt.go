@@ -10,7 +10,15 @@ import (
 	"io/ioutil"
 )
 
-func CopyMVTLayers(rd io.Reader, layers map[string]bool, wr io.Writer) error {
+type mvtCopier struct {
+	layers map[string]bool
+}
+
+func NewCopyMVTLayers(layers map[string]bool) *mvtCopier {
+	return &mvtCopier{layers: layers}
+}
+
+func (c *mvtCopier) CopyLayers(rd io.Reader, wr io.Writer) error {
 	buf, err := ioutil.ReadAll(rd)
 	if err != nil {
 		return err
@@ -27,7 +35,7 @@ func CopyMVTLayers(rd io.Reader, layers map[string]bool, wr io.Writer) error {
 		if *l.Version > 2 {
 			return fmt.Errorf("Unable to read layer with version %#q, xonacatl supports versions up to 2 only.", *l.Version)
 		}
-		if l.Name != nil && layers[*l.Name] {
+		if l.Name != nil && c.layers[*l.Name] {
 			new_layers = append(new_layers, l)
 		}
 	}
