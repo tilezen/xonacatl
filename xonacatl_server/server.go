@@ -7,6 +7,7 @@ import (
 	"github.com/NYTimes/gziphandler"
 	"github.com/gorilla/mux"
 	"github.com/namsral/flag"
+	"github.com/whosonfirst/go-httpony/stats"
 	"log"
 	"net/http"
 	"net/url"
@@ -96,7 +97,7 @@ func (r *regexpListOption) Set(line string) error {
 }
 
 func main() {
-	var listen, healthcheck string
+	var listen, healthcheck, debug_host string
 	custom_headers := headerOption{header: make(http.Header)}
 	patterns := patternsOption{patterns: make(map[string]*url.URL)}
 	do_not_forward := regexpListOption{}
@@ -108,6 +109,7 @@ func main() {
 	f.Var(&custom_headers, "headers", "JSON object of extra headers to add to proxied requests.")
 	f.StringVar(&healthcheck, "healthcheck", "", "A path to respond to with a blank 200 OK. Intended for use by load balancer health checks.")
 	f.Var(&do_not_forward, "noforward", "List of regular expressions. If a header matches one of these, then it will not be forwarded to the origin.")
+	f.StringVar(&debug_host, "debugHost", "", "IP address of remote debug host allowed to read expvars at /debug/vars.")
 	err := f.Parse(os.Args[1:])
 	if err == flag.ErrHelp {
 		return
@@ -125,6 +127,9 @@ func main() {
 	}
 
 	r := mux.NewRouter()
+
+	// initialise expvar counters
+	initCounters()
 
 	for pattern, origin := range patterns.patterns {
 		origin_router := mux.NewRouter()
@@ -146,6 +151,14 @@ func main() {
 	if len(healthcheck) > 0 {
 		r.HandleFunc(healthcheck, getHealth).Methods("GET")
 	}
+
+	// serve expvar stats to localhost and debugHost
+	expvar_func, err := stats.HandlerFunc(debug_host)
+	if err != nil {
+		log.Fatalf("Error initializing stats.HandlerFunc: %s", err.Error())
+	}
+	r.HandleFunc("/debug/vars", expvar_func).Methods("GET")
+
 	http.Handle("/", r)
 
 	log.Fatal(http.ListenAndServe(listen, r))

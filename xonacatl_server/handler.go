@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // LayersHandler proxies requests to an origin server and filters the response layers.
@@ -110,24 +111,38 @@ func (h *LayersHandler) makeProxyRequest(origin_path string, req *http.Request) 
 }
 
 func (h *LayersHandler) ServeHTTP(rw http.ResponseWriter, req *http.Request) {
+	numRequests.Add(1)
+	start_time := time.Now()
+
 	// parse form to ensure that query parameters are available.
 	err := req.ParseForm()
 	if err != nil {
+		parseFormErrors.Add(1)
 		http.Error(rw, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	layers, format, origin_path, err := h.parseRequestPath(req)
 	if err != nil {
+		parseRequestErrors.Add(1)
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	proxy_start_time := time.Now()
 	resp, err := h.makeProxyRequest(origin_path.Path, req)
+	proxy_time := time.Since(proxy_start_time)
 	if err != nil {
+		proxyErrors.Add(1)
 		http.Error(rw, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	proxiedRequests.Add(1)
+	// update counters when the function exits
+	defer func() {
+		updateCounters(time.Since(start_time), proxy_time)
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		copyResponse(&copyAll{}, resp, rw)
@@ -176,6 +191,7 @@ func copyResponse(copier xonacatl.LayerCopier, resp *http.Response, rw http.Resp
 	// response header. a write failure at this stage also could be an error
 	// writing _to_ the client.
 	if err != nil {
+		copyErrors.Add(1)
 		log.Printf("WARNING: Problem while writing response body: %s", err.Error())
 	}
 }
