@@ -1,8 +1,6 @@
 Xonacatl
 ========
 
-**Xonacatl is very alpha and probably broken!** Help would be most welcome in making it less broken.
-
 Xonacatl is a "layers server", which takes requests for a [subset of layers](https://mapzen.com/projects/vector-tiles/#layers) available and requests all the layers upstream, stripping out the unwanted layers when writing the response back to the client.
 
 For example:
